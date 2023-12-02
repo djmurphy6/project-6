@@ -17,10 +17,11 @@ class Brevets(Resource):
         # This will fail if the request body is NOT a JSON.
         input_json = request.json
 
-        ## Because input_json is a dictionary, we can do this:
-        #title = input_json["title"] # Should be a string
-        #items = input_json["items"] # Should be a list of dictionaries
-        #result = Brevet(title=title, items=items).save()
+
+        length = input_json["length"] # Should be a float
+        start_time = input_json["start_time"] # Should be a string
+        checkpoints = input_json["checkpoints"] # Should be a list of dictionaries
+        result = Brevet(length=length, start_time=start_time, checkpoints=checkpoints).save()
 
         result = Brevet(**input_json).save()
         return {'_id': str(result.id)}, 200
