@@ -156,17 +156,20 @@
                      eCounter = eCounter + 1;
                   }
 
-                  // Create an object with the row data
-                  var rowData = {
-                     miles: miles,
-                     kilometers: km,
-                     location: location,
-                     openTime: open,
-                     closeTime: close
-                  };
+                  // Check if the row has at least one non-empty field
+                  //if (miles || km || location || open || close) {
+                     // Create an object with the row data
+                     var rowData = {
+                        miles: miles,
+                        kilometers: km,
+                        location: location,
+                        openTime: open,
+                        closeTime: close
+                     };
 
-               // Add the row data to the array
-               tableData.push(rowData);
+                     // Add the row data to the array
+                     tableData.push(rowData);
+                  //}    
                });
 
                 // Check if there is at least one control time entered
@@ -177,9 +180,9 @@
                }
 
                var fullDoc = {
-                  brevetDistance: brevetDistance,
-                  beginDate: beginDate,
-                  tableData: tableData
+                  "brevetDistance": brevetDistance,
+                  "beginDate": beginDate,
+                  "tableData": tableData
                }
 
                // Log the collected data
@@ -187,15 +190,23 @@
                
                $.ajax({
                   url: '/submit',
+                  dataType: 'json',
                   type: 'POST',
                   contentType: 'application/json',
                   data: JSON.stringify(fullDoc),
-                  success: function (response) {
-                     console.log("Data submitted successfully");
+                  success: function(data) {
+                     // Check the status code we set in Flask
+                     // Recall: 1 was success, 0 was failure
+                     if (data.status == 1) {
+                           console.log("Successfully inserted! Response: ", data);
+                     }
+                     else {
+                        console.log("Insertion failed: ", data);
+                     }
                   },
-                  error: function (error) {
-                     console.error("Error submitting data:", error);
-                  }
+                  // On error
+                  error: function(err){
+                  console.log("Error: ", err); }
                });
 
 

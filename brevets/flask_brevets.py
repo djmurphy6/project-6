@@ -10,22 +10,24 @@ import requests
 import flask
 from flask import request
 import acp_times  # Brevet time calculations
-import config
-
 
 
 
 ###
 # Globals
 ###
+
+#setup Flask app
 app = flask.Flask(__name__)
-CONFIG = config.configuration()
+app.debug = True if "DEBUG" not in os.environ else os.environ["DEBUG"]
+port_num = True if "PORT" not in os.environ else os.environ["PORT"]
+app.logger.setLevel(logging.DEBUG)
 
 ##################################################
 ################### API Callers ################## 
 ##################################################
 
-API_ADDR = os.environ.get("API_ADDR", "localhost") # set default address to localhost
+API_ADDR = os.environ["API_ADDR"]
 API_PORT = os.environ["API_PORT"]
 API_URL = f"http://{API_ADDR}:{API_PORT}/api/"
 
@@ -54,24 +56,10 @@ def insert_brevet(length, start_time, checkpoints):
     
     Inputs: brevet distance, start time, and checkpoints
     """
-    _id = requests.post(f"{API_URL}/Brevets", json={"length": length, "start_time": start_time, "checkpoints": checkpoints}).json()
+    app.logger.debug("inside inster_brevets 1 ")
+    _id = requests.post(f"{API_URL}/brevets", json={"length": length, "start_time": start_time, "checkpoints": checkpoints}).json()
+    app.logger.debug("inside inster_brevets 2 ")
     return _id
-
-def db_insert(doc):
-    # Insert the document into the 'controls' collection in brevets
-    # output = db.controls.insert_one(doc)
-    # _id = output.inserted_id 
-    return "hello"
-
-def db_fetch():
-    # fetch the brevet timing information from the 'controls' collection in brevetes
-    # output = db.controls.find_one(sort=[('_id', pymongo.DESCENDING)])
-
-    # Convert ObjectId to string
-    #if output:
-    #    output['_id'] = str(output['_id'])
-
-    return "hello"
 
 ###
 # Pages
@@ -132,42 +120,48 @@ def _calc_times():
 
 @app.route("/submit", methods=["POST"])
 def submit():
-    # Get the JSON data from the request
-    data = request.get_json()
-    
+    try:
+        # Get the JSON data from the request
+        data = request.json
+        if not data:
+            raise ValueError("Empty JSON data")
 
-    # Extract data from the JSON data
-    brevet_distance = data.get('brevetDistance')
-    # app.logger.debug("brevet_distance={}".format(brevet_distance))
-    begin_date = data.get('beginDate')
-    # app.logger.debug("begin_date={}".format(begin_date))
-    controls = data.get('tableData', [])
-    # app.logger.debug("controls={}".format(controls))
+        # Extract data from the JSON data
+        brevet_distance = data["brevetDistance"]
+        begin_date = data["beginDate"]
+        controls = data["tableData"]
 
-    # Call API
-    insert_brevet(brevet_distance, begin_date, controls)
-    
-    return "recieved and sent document to db_insert"
+        app.logger.debug("brevet_distance: " + brevet_distance)
+        app.logger.debug("begin_date: " + begin_date)
+        app.logger.debug("controls: " + format(controls))
+
+        # Call API
+        brevet_id = insert_brevet(brevet_distance, begin_date, controls)
+
+        return flask.jsonify(result={},
+                        message="Inserted!", 
+                        status=1,
+                        mongo_id=brevet_id)
+    except Exception as e:
+        app.logger.error("Error submitting data: %s", str(e))
+        return flask.jsonify(result={},
+                        message="Oh no! Server error!", 
+                        status=0, 
+                        mongo_id='None')
 
 @app.route("/display")
 def display():
-    # call db_fetch
-    # argument makes it fetch most recent
-    # sort=[('_id', pymongo.DESCENDING)]
-    data = db_fetch()
+    # Call get_brevet
+    brevet_data = get_brevet()
     
     # Log the fetched data
-    app.logger.debug("Data: {}".format(data))
+    app.logger.debug("Data: {}".format(brevet_data))
 
     # Return the data as JSON
-    return flask.jsonify(result=data)
+    return flask.jsonify(result=brevet_data)
 
 #############
 
-app.debug = CONFIG.DEBUG
-if app.debug:
-    app.logger.setLevel(logging.DEBUG)
-
 if __name__ == "__main__":
-    print("Opening for global access on port {}".format(CONFIG.PORT))
-    app.run(port=CONFIG.PORT, host="0.0.0.0")
+    print("Opening for global access on port {}".format(port_num))
+    app.run(port=port_num, host="0.0.0.0")
