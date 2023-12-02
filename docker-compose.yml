@@ -13,6 +13,8 @@ services:
             API_PORT: $API_PORT
             PORT: $BREVETS_PORT
             DEBUG: "True"
+        volumes:
+          - ./brevets/:/app
     api:
         build: api/.
         command: python flask_api.py
@@ -24,5 +26,9 @@ services:
             MONGODB_HOSTNAME: db
             PORT: $API_PORT
             DEBUG: "True"
+        volumes:
+          - ./api/:/app
     db:
         image: mongo:latest
+        ports:
+            - "27017:27017"

@@ -12,6 +12,19 @@ from database.models import Brevet
 # Brevet(...).save() : creates new brevet
 # Brevet.objects.get(id=...) : similar to find_one
 
+class Brevet(Resource):
+    def get(self, id):
+        brevet = Brevet.objects.get(id=id).to_json()
+        return Response(brevet, mimetype="application/json", status=200)
+    
+    def put(self, id):
+        input_json = request.json
+        Brevet.objects.get(id=id).update(**input_json)
+        return '', 200
+
+    def delete(self, id):
+        Brevet.objects.get(id=id).delete()
+        return '', 200
 # Two options when returning responses:
 #
 # return Response(json_object, mimetype="application/json", status=200)

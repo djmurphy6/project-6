@@ -4,23 +4,74 @@ Replacement for RUSA ACP brevet time calculator
 
 """
 
-import flask, os, pymongo
+import os
+import logging
+import requests
+import flask
 from flask import request
 import acp_times  # Brevet time calculations
 import config
-from pymongo import MongoClient
 
-import logging
 
-# create mongo client
-client = MongoClient('mongodb://' + os.environ['MONGODB_HOSTNAME'], 27017)
-db = client.brevets
+
 
 ###
 # Globals
 ###
 app = flask.Flask(__name__)
 CONFIG = config.configuration()
+
+##################################################
+################### API Callers ################## 
+##################################################
+
+API_ADDR = os.environ.get("API_ADDR", "localhost") # set default address to localhost
+API_PORT = os.environ["API_PORT"]
+API_URL = f"http://{API_ADDR}:{API_PORT}/api/"
+
+def get_brevet():
+    """
+    Obtains the newest document in the "lists" collection in database
+    by calling the RESTful API.
+
+    Returns title (string) and items (list of dictionaries) as a tuple.
+    """
+    # Get documents (rows) in our collection (table),
+    # Sort by primary key in descending order and limit to 1 document (row)
+    # This will translate into finding the newest inserted document.
+
+    brevets = requests.get(f"{API_URL}/Brevets").json()
+
+    # lists should be a list of dictionaries.
+    # we just need the last one:
+    brevet = brevets[-1]
+    return brevet["length"], brevet["start_time"], brevet["checkpoints"]
+
+
+def insert_brevet(length, start_time, checkpoints):
+    """
+    Inserts a new brevet into the database by calling the API.
+    
+    Inputs: brevet distance, start time, and checkpoints
+    """
+    _id = requests.post(f"{API_URL}/Brevets", json={"length": length, "start_time": start_time, "checkpoints": checkpoints}).json()
+    return _id
+
+def db_insert(doc):
+    # Insert the document into the 'controls' collection in brevets
+    # output = db.controls.insert_one(doc)
+    # _id = output.inserted_id 
+    return "hello"
+
+def db_fetch():
+    # fetch the brevet timing information from the 'controls' collection in brevetes
+    # output = db.controls.find_one(sort=[('_id', pymongo.DESCENDING)])
+
+    # Convert ObjectId to string
+    #if output:
+    #    output['_id'] = str(output['_id'])
+
+    return "hello"
 
 ###
 # Pages
@@ -31,8 +82,8 @@ CONFIG = config.configuration()
 @app.route("/index")
 def index():
     app.logger.debug("Main page entry")
-    return flask.render_template('calc.html', 
-                    items=list(db.controls.find()))
+    return flask.render_template('calc.html') 
+                    # items=list(db.controls.find()))
 
 
 @app.errorhandler(404)
@@ -93,15 +144,8 @@ def submit():
     controls = data.get('tableData', [])
     # app.logger.debug("controls={}".format(controls))
 
-    # Create a MongoDB document
-    document = {
-        "brevet_distance": brevet_distance,
-        "begin_date": begin_date,
-        "controls": controls
-    }
-
-    #call db_insert to put data into database
-    db_insert(document)
+    # Call API
+    insert_brevet(brevet_distance, begin_date, controls)
     
     return "recieved and sent document to db_insert"
 
@@ -117,22 +161,6 @@ def display():
 
     # Return the data as JSON
     return flask.jsonify(result=data)
-
-def db_insert(doc):
-    # Insert the document into the 'controls' collection in brevets
-    output = db.controls.insert_one(doc)
-    _id = output.inserted_id 
-    return str(_id)
-
-def db_fetch():
-    # fetch the brevet timing information from the 'controls' collection in brevetes
-    output = db.controls.find_one(sort=[('_id', pymongo.DESCENDING)])
-
-    # Convert ObjectId to string
-    if output:
-        output['_id'] = str(output['_id'])
-
-    return output
 
 #############
 
